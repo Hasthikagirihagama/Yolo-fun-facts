@@ -1,7 +1,3 @@
-Perfect idea 👍 A **README.md** file will make it much easier for you (and anyone else) to set up the project and run it without confusion. Here’s a clean step-by-step draft for your YOLO + facts project:
-
----
-
 # 📦 YOLO Object Detection with Fun Facts (Web + Mobile Optimized)
 
 This project uses **YOLOv8 (Ultralytics)** to detect objects in real time through a web interface, and then shows **fun facts** about the detected objects. Works both on **desktop** and **mobile** (with support for the back camera on phones).
