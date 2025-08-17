@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head><title>Mobile Camera with YOLO Backend</title></head>
+<body>
+  <video id="video" width="320" height="240" autoplay playsinline></video>
+  <canvas id="canvas" width="320" height="240" style="position:absolute;top:0;left:0;"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch(e) {
+        alert('Camera error: ' + e);
+      }
+    }
+
+    async function sendFrame() {
+      // Draw current video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Get JPEG data URL from canvas
+      const dataURL = canvas.toDataURL('image/jpeg');
+
+      // Send base64 image to backend
+      fetch('/detect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ image: dataURL })
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Clear previous overlays
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Draw bounding boxes & labels
+        data.detections.forEach(det => {
+          ctx.strokeStyle = 'lime';
+          ctx.lineWidth = 2;
+          ctx.font = '16px Arial';
+          ctx.fillStyle = 'lime';
+
+          const [x1, y1, x2, y2] = det.bbox;
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+          ctx.fillText(det.label, x1, y1 > 10 ? y1 - 5 : 10);
+
+          // Optionally draw facts
+          if(det.facts){
+            det.facts.forEach((fact, idx) => {
+              ctx.fillText(fact, x1, y2 + 20 + idx * 18);
+            });
+          }
+        });
+      })
+      .catch(console.error);
+    }
+
+    startCamera();
+
+    // Send frame every 500 ms
+    setInterval(sendFrame, 500);
+  </script>
+</body>
+</html>

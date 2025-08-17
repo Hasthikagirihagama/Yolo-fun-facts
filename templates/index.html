@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mobile Camera with YOLO Backend</title>
+  <style>
+    body {
+      background: #222;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    #video-container {
+      position: relative;
+      width: 480px;
+      height: 360px;
+    }
+    video {
+      border-radius: 8px;
+      box-shadow: 0 0 15px #0f0;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+    #facts-panel {
+      margin-top: 20px;
+      width: 480px;
+      min-height: 120px;
+      background: #111;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 0 10px #0f0;
+      overflow-y: auto;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>YOLO Object Detection with Fun Facts</h2>
+
+  <div id="video-container">
+    <video id="video" width="480" height="360" autoplay playsinline></video>
+    <canvas id="canvas" width="480" height="360"></canvas>
+  </div>
+
+  <div id="facts-panel">
+    <h3>Detected Object Facts:</h3>
+    <div id="facts-content"><em>No objects detected.</em></div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const factsContent = document.getElementById('facts-content');
+
+    let lastLabel = null;
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
+        video.srcObject = stream;
+      } catch(e) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = stream;
+        } catch(err) {
+          alert('Camera error: ' + err);
+        }
+      }
+    }
+
+    async function sendFrame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataURL = canvas.toDataURL('image/jpeg');
+
+      fetch('/detect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ image: dataURL })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (!data.detections || data.detections.length === 0) {
+          factsContent.innerHTML = '<em>No objects detected.</em>';
+          return;
+        }
+
+        data.detections.forEach(det => {
+          ctx.strokeStyle = 'lime';
+          ctx.lineWidth = 4;
+          ctx.font = '18px Arial';
+          ctx.fillStyle = 'lime';
+          ctx.shadowColor = 'black';
+          ctx.shadowBlur = 6;
+
+          const [x1, y1, x2, y2] = det.bbox;
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+          ctx.fillText(det.label, x1 + 4, y1 > 20 ? y1 - 6 : 20);
+        });
+
+        let mainLabel = data.detections[0].label;
+        if (mainLabel !== lastLabel) {
+          lastLabel = mainLabel;
+          let factsHtml = '';
+          const facts = data.detections[0].facts;
+          if (facts && facts.length > 0) {
+            facts.forEach((fact, idx) => {
+              factsHtml += `<p>• ${fact}</p>`;
+            });
+          } else {
+            factsHtml = '<p>No fun facts found.</p>';
+          }
+          factsContent.innerHTML = factsHtml;
+        }
+      })
+      .catch(console.error);
+    }
+
+    startCamera();
+    setInterval(sendFrame, 700);
+  </script>
+</body>
+</html>

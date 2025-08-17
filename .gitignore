@@ -1,0 +1,9 @@
+# Python virtual environment
+ai_ar_env/
+
+# YOLO model weights
+yolov8n.pt
+
+# Python cache files
+__pycache__/
+*.pyc
